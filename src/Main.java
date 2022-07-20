@@ -1,11 +1,13 @@
 import java.util.*;
 
 public class Main {
-    private static Map<Character, Integer> romanNumbersMap = Map.of(
+    private static final Map<Character, Integer> romanNumbersMap = Map.of(
                 'I', 1,
                 'V', 5,
-                'X', 10);
-    private static  List<Character> operators = Arrays.asList('+', '-', '/', '*');
+                'X', 10,
+                'L', 50,
+                'C', 100);
+    private static final List<Character> operators = Arrays.asList('+', '-', '/', '*');
 
     public static void main(String[] args) throws Exception {
         String result = calc(new Scanner(System.in).nextLine());
@@ -16,12 +18,8 @@ public class Main {
 
     public static String calc(String input) throws Exception {
         String[] inputData = parseInputString(input);
-        if(isNumbersArabic(inputData[0])){
-            return getResult(inputData);
-        }else {
-            return convertArabicToRoman(Integer.parseInt(getResult(inputData)));
-        }
 
+        return getResult(inputData);
     }
 
     private static String[] parseInputString(String input) throws Exception {
@@ -62,67 +60,45 @@ public class Main {
                 .intValue();
     }
 
-    private static List<Integer> getIntNumbers(String intString) throws Exception {
+    private static List<Integer> getIntNumbers(String input) throws Exception {
         List<Integer> intNumbers = new ArrayList<>();
-        if(intString.contains("10")){
-            intNumbers.add(10);
-            intString = intString.replace("10", "");
+
+        String[] inputSplitArray = input.split(" ");
+        for (String s: inputSplitArray) {
+            Integer number = parseInt(s);
+            if(number != null){
+                intNumbers.add(number);
+            }
         }
-        intString.chars()
-                .forEach(i -> {
-                    int res = Character.getNumericValue(i);
-                    if(res != -1){
-                        intNumbers.add(res);
-                    }
-                });
 
         if (intNumbers.size() > 2){
             throw new Exception("Wrong mathematical operation format - two operand and one operator required");
-        }
-
-        for (int number: intNumbers) {
-            if(number < 1 || number > 10){
-                throw new Exception("Numbers should be in range from 1 to 10");
-            }
         }
 
         return intNumbers;
     }
 
     private static List<String> getRomanNumbers(String romanString) throws Exception {
-        List<Character> firstRomanNumber = new ArrayList<>();
-        List<Character> secondRomanNumber = new ArrayList<>();
+        List<String> romanNumbers = new ArrayList<>();
 
         romanString = romanString.replace("IV","IIII");
         romanString = romanString.replace("IX","VIIII");
 
-        romanString.chars()
-                .takeWhile(c -> c != ' ' && !operators.contains((char)c))
-                .filter(c -> romanNumbersMap.containsKey((char)c))
-                .forEach(c -> firstRomanNumber.add((char)c));
-        romanString.chars()
-                .skip(firstRomanNumber.size())
-                .dropWhile(c -> (char)c == ' ' && !operators.contains((char)c))
-                .filter(c -> romanNumbersMap.containsKey((char)c))
-                .forEach(c -> secondRomanNumber.add((char)c));
+        String[] inputSplitArray = romanString.split(" ");
 
-        StringBuilder firstNumber = new StringBuilder();
-        for (Character c: firstRomanNumber) {
-            firstNumber.append(c);
+        for (String s:inputSplitArray) {
+            if(!operators.contains(s.charAt(0))){
+                romanNumbers.add(s);
+            }
         }
 
-        StringBuilder secondNumber = new StringBuilder();
-        for (Character c: secondRomanNumber) {
-            secondNumber.append(c);
+        if(romanNumbers.size() > 2){
+            throw new Exception("Wrong mathematical operation format - two operand and one operator required");
         }
 
-        if((firstNumber.toString().startsWith("X") && firstNumber.length() > 1) ||
-            (secondNumber.toString().startsWith("X") && secondNumber.length() > 1)){
-            throw new Exception("Numbers should be in range from I to X");
-        }
-
-        return List.of(firstNumber.toString(), secondNumber.toString());
+        return romanNumbers;
     }
+
     private static String getResult(String[] inputData) throws Exception {
         int firstNumber;
         int secondNumber;
@@ -132,32 +108,27 @@ public class Main {
         if (isArabicNumbers) {
             firstNumber = Integer.parseInt(inputData[0]);
             secondNumber = Integer.parseInt(inputData[2]);
-            operation = inputData[1];
         }else {
             firstNumber = convertRomanToArabic(inputData[0]);
             secondNumber = convertRomanToArabic(inputData[2]);
-            operation = inputData[1];
+        }
+        operation = inputData[1];
+
+        if(firstNumber < 1 || firstNumber > 10 || secondNumber < 1 || secondNumber > 10){
+            throw new Exception("Numbers should be in range from 1 to 10");
         }
 
-        switch (operation) {
-            case "+":
-                return String.valueOf(firstNumber + secondNumber);
-
-            case "-":
-                if(!isArabicNumbers && firstNumber < secondNumber){
-                    throw new Exception("Roman numeral system has no negative numbers");
-                }
-                return String.valueOf(firstNumber - secondNumber);
-
-            case "/":
-                return String.valueOf(firstNumber / secondNumber);
-
-            case "*":
-                return String.valueOf(firstNumber * secondNumber);
-
-            default:
-                return null;
-        }
+        return switch (operation) {
+            case "+" -> isArabicNumbers ?
+                    String.valueOf(firstNumber + secondNumber) : convertArabicToRoman(firstNumber + secondNumber);
+            case "-" -> isArabicNumbers ?
+                    String.valueOf(firstNumber - secondNumber) : convertArabicToRoman(firstNumber - secondNumber);
+            case "/" -> isArabicNumbers ?
+                    String.valueOf(firstNumber / secondNumber) : convertArabicToRoman(firstNumber / secondNumber);
+            case "*" -> isArabicNumbers ?
+                    String.valueOf(firstNumber * secondNumber) : convertArabicToRoman(firstNumber * secondNumber);
+            default -> null;
+        };
     }
 
     private static boolean isNumbersArabic(String input){
@@ -165,21 +136,37 @@ public class Main {
     }
 
     private static int convertRomanToArabic(String romanNumber){
+        romanNumber = romanNumber.replace("IV","IIII");
+        romanNumber = romanNumber.replace("IX","VIIII");
+
         return romanNumber.chars()
                 .map(r -> romanNumbersMap.get((char)r))
                 .sum();
     }
 
-    private static String convertArabicToRoman(int number){
-        String[] tens = {"", "X", "XX"};
+    private static String convertArabicToRoman(int number) throws Exception {
+        if(number < 0){
+            throw new Exception("Roman numeral system has no negative numbers");
+        }
+
+        String[] hundreds = {"", "C"};
+        String[] tens = {"", "X", "XX", "XXX", "XL", "L", "LX", "LXX", "LXXX", "XC"};
         String[] units = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"};
 
-        String result = tens[(number % 100) / 10] + units[number % 10];
+        String result = hundreds[(number % 1000) / 100] + tens[(number % 100) / 10] + units[number % 10];
         if(result.length() > 0){
             return result;
         }
         else {
-            return "nulla";
+            throw new Exception("Roman numeral system has no 0");
+        }
+    }
+
+    private static Integer parseInt(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }
